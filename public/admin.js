@@ -1,0 +1,4 @@
+let pw="";const $=x=>document.getElementById(x);
+async function login(){pw=$("pass").value;let r=await fetch("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw})});let x=await r.json();if(!x.ok)return alert("Wrong password");$("login").classList.add("hidden");$("admin").classList.remove("hidden");load()}
+async function load(){let r=await fetch("/api/questions");let qs=await r.json();$("list").innerHTML=qs.map((q,i)=>`<div class=row><span>${i+1}. ${q.text}</span><b>${q.points}</b></div>`).join("")}
+async function add(){let body={text:$("qt").value,options:[$("a").value,$("b").value,$("c").value,$("d").value],answer:+$("ans").value,points:+$("pts").value};let r=await fetch("/api/questions",{method:"POST",headers:{"Content-Type":"application/json","x-admin-password":pw},body:JSON.stringify(body)});if(!r.ok)return alert((await r.json()).error);["qt","a","b","c","d"].forEach(x=>$(x).value="");load()}

@@ -1,0 +1,5 @@
+const s=io();const $=x=>document.getElementById(x);const qp=new URLSearchParams(location.search);if(qp.get("room"))$("room").value=qp.get("room");
+function join(){s.emit("join",{code:$("room").value,name:"Audience",role:"audience",employeeCode:"AUD-"+Math.random().toString(36).slice(2,9)})}
+s.on("joined",()=>{$("area").classList.remove("hidden")});s.on("errorMsg",alert);
+s.on("state",x=>{if(x.question){$("q").innerHTML=x.question.text;$("answers").innerHTML=x.question.options.map((o,i)=>`<button class=answer onclick="s.emit('audience:poll',{choice:${i}})">${String.fromCharCode(65+i)}. ${o}</button>`).join("")}});
+s.on("poll",c=>{let t=Object.values(c).reduce((a,b)=>a+b,0)||1;$("poll").innerHTML=[0,1,2,3].map(i=>{let p=Math.round((c[i]||0)*100/t);return `<div class=bar><i style=width:${p}%></i><span>${String.fromCharCode(65+i)}</span><em>${p}%</em></div>`}).join("")})
