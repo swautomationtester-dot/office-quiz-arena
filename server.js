@@ -147,7 +147,10 @@ function emitState(code){
   audiencePollUrl:r.audiencePollUrl,
   audiencePollQr:r.audiencePollQr,
   pollActive:r.pollActive,
-  pollCounts:Object.fromEntries(r.poll),
+  // Expose poll results as answer-choice counts (0..3), never as
+  // audience socket-id -> choice pairs. This keeps every client in sync
+  // after the state broadcast that follows a vote.
+  pollCounts:(()=>{const c={0:0,1:0,2:0,3:0};for(const choice of r.poll.values()){const v=Number(choice);if(v>=0&&v<=3)c[v]++;}return c;})(),
   lifelines:(r.winner&&r.current>=0)?{
     "5050":!!r.winner.lifelinesUsed?.["5050"],
     "audience":!!r.winner.lifelinesUsed?.audience,
@@ -198,6 +201,10 @@ async function startFastest(r, keepPool=false){
    if(r.phase!=="fastest")return;
    r.phase="fastestTimeout";
    r.pool.forEach(u=>{
+     // This Fastest Finger round is over for everyone. They remain
+     // registered and can be selected again in a future round unless they
+     // have actually entered the main quiz.
+     u.inPool=false;
      const existing=r.fastestProgress.get(u.employeeCode);
      if(!r.fastestTimes.has(u.employeeCode))
        r.fastestTimes.set(u.employeeCode,{name:u.name,time:r.fastestDurationMs,status:"TIMEOUT"});
