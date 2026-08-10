@@ -75,7 +75,7 @@ function renderHostAudiencePoll(x){
  panel.classList.remove("hidden");
  const q=x.question;
  if($("hostAudiencePollQuestion"))$("hostAudiencePollQuestion").textContent=q?.text||"Audience Poll";
- const c=x.pollCounts||{},total=Object.values(c).reduce((a,b)=>a+Number(b||0),0);
+ const c={0:0,1:0,2:0,3:0,...(x.pollCounts||{})},total=Object.values(c).reduce((a,b)=>a+Number(b||0),0);
  const opts=q?.options||["Option A","Option B","Option C","Option D"];
  results.innerHTML=opts.map((o,i)=>{const n=Number(c[i]||0),pct=total?Math.round(n*100/total):0;return `<div class="pollVoteRow"><div><b>${String.fromCharCode(65+i)}. ${o}</b><strong>${pct}%</strong></div><div class="pollTrack"><i style="width:${pct}%"></i></div><small>${n} vote${n===1?"":"s"}</small></div>`}).join("")+`<div class="pollTotal">${total} total vote${total===1?"":"s"}</div>`;
 }

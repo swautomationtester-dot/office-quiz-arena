@@ -27,7 +27,7 @@ function playQuestionAudio(questionIndex){
     questionAudio.play().catch(()=>{});
   }catch(e){}
 }
-const prizes=[100,200,300,500,1000,2000,5000,10000,20000,50000];
+const prizes=[100,200,300,500,50000];
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
 
@@ -97,7 +97,7 @@ function renderPoll(x){
  if(qr)qr.src=st.audiencePollQr||"";
  if($("pollUrl"))$("pollUrl").textContent=st.audiencePollUrl||"";
  if($("pollQuestionTitle"))$("pollQuestionTitle").textContent=st.question?.text||"Audience Poll";
- const counts=st.pollCounts||{},total=Object.values(counts).reduce((a,b)=>a+Number(b||0),0);
+ const counts={0:0,1:0,2:0,3:0,...(st.pollCounts||{})},total=Object.values(counts).reduce((a,b)=>a+Number(b||0),0);
  const opts=st.question?.options||["Option A","Option B","Option C","Option D"];
  results.innerHTML=opts.map((o,i)=>{const n=Number(counts[i]||0),pct=total?Math.round(n*100/total):0;return `<div class="pollResultRow"><div class="pollResultHead"><b>${String.fromCharCode(65+i)}. ${o}</b><strong>${pct}%</strong></div><div class="pollTrack"><i style="width:${pct}%"></i></div><small>${n} vote${n===1?"":"s"}</small></div>`}).join("");
  if($("pollUrl"))$("pollUrl").textContent=st.audiencePollUrl||"";
@@ -260,13 +260,13 @@ s.on("answerRevealed",a=>{
 });
 s.on("poll",c=>{
   if(!latestTvState)return;
-  latestTvState.pollCounts={...c};
+  latestTvState.pollCounts={0:0,1:0,2:0,3:0,...c};
   renderPoll(latestTvState);
 });
 s.on("state",x=>{ latestTvState=x;try{
  updateJoin(x);renderParticipants(x);$("roomLabel").textContent=x.phase.toUpperCase();renderLadder(x.current);
  renderPoll(x);
- if(x.pollActive){addCls($("qrStage"),"hidden");}
+
  if(x.phase==="registration"){
    scheduleTvReload("registration");
    removeCls($("tvmain"),"tv-enter");
@@ -311,8 +311,8 @@ s.on("state",x=>{ latestTvState=x;try{
  if(x.phase==="eliminated"){
  const e=x.eliminatedContestant;
  $("tvmain").innerHTML=`<div class=elimination><div class=tvkicker>CONTESTANT ELIMINATED</div><div class=wrongX>✕</div><h1>WRONG ANSWER</h1><h2>${e?e.name:"Contestant"}</h2><p>Well played!</p><div class=securedPoints>POINTS SECURED <b>₹${Number(e?.pointsEarned||0).toLocaleString("en-IN")}</b></div><div class=nextBadge>NEXT: FASTEST FINGER</div></div>`;return}
- if(x.phase==="question"&&x.question){if(lastQuestion!==x.current){playQuestionAudio(x.current);transition("NEW CONTESTANT GAME",`QUESTION ${x.current+1} OF 10`);setTimeout(()=>{
-   $("tvmain").innerHTML=`<div class=questionScreen><div class=qmeta><span>QUESTION ${x.current+1} OF 10</span><span>₹${x.question.points.toLocaleString("en-IN")}</span></div><h1>${x.question.text}</h1><div class=tvopts>${x.question.options.map((o,i)=>`<div><b>${String.fromCharCode(65+i)}</b><span>${o}</span></div>`).join("")}</div></div>`;
+ if(x.phase==="question"&&x.question){if(lastQuestion!==x.current){playQuestionAudio(x.current);transition("NEW CONTESTANT GAME",`QUESTION ${x.current+1} OF ${(x.totalQuestions||5)}`);setTimeout(()=>{
+   $("tvmain").innerHTML=`<div class=questionScreen><div class=qmeta><span>QUESTION ${x.current+1} OF ${(x.totalQuestions||5)}</span><span>₹${x.question.points.toLocaleString("en-IN")}</span></div><h1>${x.question.text}</h1><div class=tvopts>${x.question.options.map((o,i)=>`<div><b>${String.fromCharCode(65+i)}</b><span>${o}</span></div>`).join("")}</div></div>`;
    tone(440,.18);tone(660,.22,"sine",.05,.18);
    // The delayed question transition used to overwrite the audience-poll
    // overlay about 650ms after the poll opened. Always restore the poll after
@@ -328,7 +328,7 @@ s.on("state",x=>{ latestTvState=x;try{
     <div class="winnerCrown">🏆</div>
     <div class="winnerCheck">ANSWER CHECK</div>
     <h1 class="winnerName">${winner.name||"Champion"}</h1>
-    <p class="winnerCongrats">ALL 10 ANSWERS CORRECT</p>
+    <p class="winnerCongrats">ALL 5 ANSWERS CORRECT</p>
     <div class="winnerPoints">₹50,000</div>
     <div class="winnerCountdown" id="winnerCountdown">30</div>
     <button class="soundPrompt" id="winnerSoundBtn">🔊 PLAY CELEBRATION MUSIC</button>
