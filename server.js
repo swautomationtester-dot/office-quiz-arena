@@ -50,8 +50,9 @@ async function questions(){
 // Questions progress from easy to hard and never repeat the same source fact
 // within a game. Options are shuffled so the correct answer is not always
 // in the same position.
-const GAME_POINTS=[100,200,300,500,1000,2000,5000,10000,20000,50000];
-const GAME_DIFFICULTY=[1,1,2,2,3,3,4,4,5,5];
+const GAME_POINTS=[100,200,300,500,50000];
+const GAME_DIFFICULTY=[1,2,3,4,5];
+const TOTAL_QUESTIONS=5;
 
 function shuffleCopy(arr){
  const a=Array.isArray(arr)?arr.slice():[];
@@ -104,10 +105,10 @@ function buildGameQuestions(bank){
    selected.push(q);
  }
  // Safety fallback: always return exactly 10 if the bank is unexpectedly small.
- if(selected.length<10){
+ if(selected.length<TOTAL_QUESTIONS){
    const remaining=shuffleCopy(bank||[]).filter(q=>!selected.some(x=>questionFact(x)===questionFact(q)));
    for(const raw of remaining){
-     if(selected.length>=10)break;
+     if(selected.length>=TOTAL_QUESTIONS)break;
      const q=structuredClone(raw);
      const correctValue=(q.options||[])[Number(q.answer)];
      q.options=shuffleCopy(q.options||[]);
@@ -117,11 +118,20 @@ function buildGameQuestions(bank){
      selected.push(q);
    }
  }
- return selected.slice(0,10);
+ return selected.slice(0,TOTAL_QUESTIONS);
 }
 
 const rooms=new Map();
-function makeRoom(){return{host:null,users:new Map(),questions:[],current:-1,phase:"lobby",pool:[],winner:null,completed:new Set(),played:new Set(),failed:new Set(),answers:new Map(),pendingAnswer:null,pendingPollRequest:null,poll:new Map(),lifelines:new Set(),timer:null,fastestSize:7,fastestStartAt:0,fastestDurationMs:15000,fastestSequence:[],fastestTimes:new Map(),fastestProgress:new Map(),fastestToken:"",fastestJoinUrl:"",fastestJoinQr:"",screenToken:"",screenUrl:"",screenQr:"",audiencePollUrl:"",audiencePollQr:"",pollActive:false,winnerCelebrationUntil:0,contestantId:null,ladder:[100,200,300,500,1000,2000,5000,10000,20000,50000]}}
+function pollCounts(poll){
+  const c={0:0,1:0,2:0,3:0};
+  for(const choice of (poll?.values?.()||[])){
+    const v=Number(choice);
+    if(v>=0&&v<=3)c[v]++;
+  }
+  return c;
+}
+
+function makeRoom(){return{host:null,users:new Map(),questions:[],current:-1,phase:"lobby",pool:[],winner:null,completed:new Set(),played:new Set(),failed:new Set(),answers:new Map(),pendingAnswer:null,pendingPollRequest:null,poll:new Map(),lifelines:new Set(),fiftyFiftyRemoved:new Map(),timer:null,fastestSize:7,fastestStartAt:0,fastestDurationMs:15000,fastestSequence:[],fastestTimes:new Map(),fastestProgress:new Map(),fastestToken:"",fastestJoinUrl:"",fastestJoinQr:"",screenToken:"",screenUrl:"",screenQr:"",audiencePollUrl:"",audiencePollQr:"",pollActive:false,winnerCelebrationUntil:0,contestantId:null,eliminatedContestant:null,ladder:[100,200,300,500,50000]}}
 function active(r){return [...r.users.values()].filter(u=>u.status==="active")}
 function emitState(code){
  const r=rooms.get(code);if(!r)return;
@@ -129,12 +139,12 @@ function emitState(code){
  const now=Date.now();
  const remaining=r.phase==="fastest"?Math.max(0,r.fastestStartAt+r.fastestDurationMs-now):0;
  io.to(code).emit("state",{
-  phase:r.phase,current:r.current,winnerCelebrationUntil:r.winnerCelebrationUntil||0,
+  phase:r.phase,current:r.current,totalQuestions:TOTAL_QUESTIONS,winnerCelebrationUntil:r.winnerCelebrationUntil||0,
   question:q?{text:q.text,options:q.options,points:q.points}:null,
   users:[...r.users.values()].map(u=>({id:u.id,name:u.name,employeeCode:u.employeeCode,score:u.score,status:u.status})),
   registered:r.users.size,active:active(r).length,contestantId:r.contestantId||null,
   pool:r.pool.map(u=>({id:u.id,name:u.name,employeeCode:u.employeeCode})),
-  winner:r.winner?{name:r.winner.name,employeeCode:r.winner.employeeCode,time:r.winner.time}:null,contestant:r.winner?{id:r.winner.id,name:r.winner.name,employeeCode:r.winner.employeeCode}:null,currentAnswer:r.answers.size?[...r.answers.values()][0]:null,pendingAnswer:r.pendingAnswer||null,pendingPollRequest:r.pendingPollRequest||null,
+  winner:r.winner?{name:r.winner.name,employeeCode:r.winner.employeeCode,time:r.winner.time}:null,contestant:r.winner?{id:r.winner.id,name:r.winner.name,employeeCode:r.winner.employeeCode}:null,eliminatedContestant:r.eliminatedContestant||null,currentAnswer:r.answers.size?[...r.answers.values()][0]:null,pendingAnswer:r.pendingAnswer||null,pendingPollRequest:r.pendingPollRequest||null,
   fastestStartAt:r.fastestStartAt,
   fastestDurationMs:r.fastestDurationMs,
   fastestRemaining:remaining,
@@ -150,7 +160,8 @@ function emitState(code){
   // Expose poll results as answer-choice counts (0..3), never as
   // audience socket-id -> choice pairs. This keeps every client in sync
   // after the state broadcast that follows a vote.
-  pollCounts:(()=>{const c={0:0,1:0,2:0,3:0};for(const choice of r.poll.values()){const v=Number(choice);if(v>=0&&v<=3)c[v]++;}return c;})(),
+  pollCounts:pollCounts(r.poll),
+  fiftyFiftyRemoved:(r.current>=0)?(r.fiftyFiftyRemoved.get(r.current)||[]):[],
   lifelines:(r.winner&&r.current>=0)?{
     "5050":!!r.winner.lifelinesUsed?.["5050"],
     "audience":!!r.winner.lifelinesUsed?.audience,
@@ -235,6 +246,7 @@ function nextContestant(code){
    x.winner=null;
    x.pool=[];
    x.contestantId=null;
+   x.eliminatedContestant=null;
    // The contestant has already played the main quiz and must not return
    // to the Fastest Finger queue. Only players who lost Fastest Finger
    // itself remain eligible for later selections.
@@ -306,7 +318,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
   const lifelineKey=`${req.id}:${r.current}:audience`;
   r.lifelines.add(lifelineKey);
   if(r.winner?.id===req.id) r.winner.lifelinesUsed={...(r.winner.lifelinesUsed||{}),audience:true};
-  io.to(req.id).emit("audiencePollApproved",{contestant:req,counts:Object.fromEntries(r.poll)});
+  io.to(req.id).emit("audiencePollApproved",{contestant:req,counts:pollCounts(r.poll)});
   io.to(s.data.room).emit("audiencePollStarted",{contestant:req});
   emitState(s.data.room);
  });
@@ -331,7 +343,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  const lifelineKey=`${r.winner.id}:${r.current}:audience`;
  r.lifelines.add(lifelineKey);
  r.winner.lifelinesUsed={...(r.winner.lifelinesUsed||{}),audience:true};
- io.to(r.winner.id).emit("audiencePollApproved",{contestant:{name:r.winner.name,employeeCode:r.winner.employeeCode},counts:Object.fromEntries(r.poll)});
+ io.to(r.winner.id).emit("audiencePollApproved",{contestant:{name:r.winner.name,employeeCode:r.winner.employeeCode},counts:pollCounts(r.poll)});
  io.to(s.data.room).emit("audiencePollStarted",{contestant:{name:r.winner.name,employeeCode:r.winner.employeeCode}});
  emitState(s.data.room);
 });
@@ -399,7 +411,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  r.played.add(r.winner.employeeCode);
  const bank=await questions();
  r.questions=buildGameQuestions(bank);
- r.phase="question";r.current=0;r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();if(r.winner)r.winner.lifelinesUsed={"5050":false,"audience":false,"phone":false};
+ r.phase="question";r.current=0;r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();r.fiftyFiftyRemoved.clear();r.eliminatedContestant=null;if(r.winner)r.winner.lifelinesUsed={"5050":false,"audience":false,"phone":false};
  emitState(s.data.room);
 });
  s.on("host:nextFastest",async()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;await pick7(r);emitState(s.data.room)});
@@ -408,7 +420,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  const r=rooms.get(s.data.room);if(!r||r.host!==s.id||r.phase!=="question")return;
  r.current++;
  r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();
- if(r.current>=10||r.current>=r.questions.length){
+ if(r.current>=TOTAL_QUESTIONS||r.current>=r.questions.length){
    r.phase="finished";r.current=-1;
    clearTimeout(r.timer);
    r.timer=setTimeout(()=>{
@@ -420,7 +432,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  }else r.phase="question";
  emitState(s.data.room);
 });
- s.on("host:restartEvent",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;for(const u of r.users.values()){u.score=0;u.status="active";u.inPool=false;u.lifelinesUsed={"5050":false,"audience":false,"phone":false}}r.contestantId=null;r.failed.clear();r.completed.clear();r.played.clear();r.pool=[];r.winner=null;r.current=-1;r.phase="registration";emitState(s.data.room)});
+ s.on("host:restartEvent",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;for(const u of r.users.values()){u.score=0;u.status="active";u.inPool=false;u.lifelinesUsed={"5050":false,"audience":false,"phone":false}}r.contestantId=null;r.failed.clear();r.completed.clear();r.played.clear();r.pool=[];r.winner=null;r.current=-1;r.fiftyFiftyRemoved.clear();r.eliminatedContestant=null;r.phase="registration";emitState(s.data.room)});
  s.on("player:answer",({choice})=>{
   const r=rooms.get(s.data.room);if(!r||r.phase!=="question")return;
   const u=r.users.get(s.id);
@@ -461,7 +473,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
       x.pendingAnswer=null;
       x.poll.clear();
       x.lifelines.clear();
-      if(x.current>=10||x.current>=x.questions.length){
+      if(x.current>=TOTAL_QUESTIONS||x.current>=x.questions.length){
         x.phase="winnerCelebration";
         x.current=-1;
         x.winnerCelebrationUntil=Date.now()+30000;
@@ -546,7 +558,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
   const v=Number(choice);
   if(!Number.isInteger(v)||v<0||v>3){ok({ok:false,error:"Invalid poll choice."});return}
   r.poll.set(s.id,v);
-  const c={};for(const x of r.poll.values())c[x]=(c[x]||0)+1;
+  const c=pollCounts(r.poll);
   ok({ok:true,choice:v,count:c[v]||0,total:r.poll.size});
   io.to(s.data.room).emit("poll",c);
   emitState(s.data.room);
@@ -560,6 +572,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  if(type==="5050"){
    u.lifelinesUsed["5050"]=true;
    const remove=q.options.map((_,i)=>i).filter(i=>i!==q.answer).sort(()=>Math.random()-.5).slice(0,2);
+   r.fiftyFiftyRemoved.set(r.current,remove);
    s.emit("lifelineResult",{type,remove,used:true});
    emitState(s.data.room);
  }else if(type==="audience"){
