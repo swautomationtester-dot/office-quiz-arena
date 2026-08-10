@@ -25,7 +25,7 @@ s.on("answerRejected",a=>{
 function approveAnswer(){s.emit("host:approveAnswer")}
 function rejectAnswer(){s.emit("host:rejectAnswer")}
 
-s.on("state",x=>{ audiencePollOpen=!!x.pollActive;updatePollButton();
+s.on("state",x=>{ audiencePollOpen=!!x.pollActive;renderHostAudiencePoll(x);updatePollButton();
  $("reg").textContent=x.registered;$("active").textContent=x.active;drawTimer(x);
  $("restartFastestBtn").disabled=!["fastestTimeout"].includes(x.phase);
  const msg={
@@ -61,14 +61,27 @@ s.on("state",x=>{ audiencePollOpen=!!x.pollActive;updatePollButton();
  $("board").innerHTML=x.users.filter(u=>u.status!=="eliminated").sort((a,b)=>b.score-a.score).map((u,i)=>`<div class=row><span>#${i+1} ${u.name}</span><b>${u.score}</b></div>`).join("");
 });
 
-s.on("hostQuestion",q=>{
+s.on("hostQuestion",q=>{ window.__hostQuestion=q;
  const old=document.getElementById("hostQuestion");
  if(!old)return;
  if(!q){old.innerHTML="";return}
  old.innerHTML=`<div class="hostQuestionCard"><div class="eyebrow">HOST ONLY • ${q.difficulty?"LEVEL "+q.difficulty:""}</div><h3>${q.text}</h3><div class="hostOptions">${q.options.map((o,i)=>`<div class="${i===q.answer?"correctHint":""}"><b>${String.fromCharCode(65+i)}</b> ${o}${i===q.answer?" <span>✓ CORRECT</span>":""}</div>`).join("")}</div></div>`;
 });
 
+function renderHostAudiencePoll(x){
+ const panel=$("hostAudiencePoll"),results=$("hostAudiencePollResults");
+ if(!panel||!results)return;
+ if(!x?.pollActive){panel.classList.add("hidden");results.innerHTML="";return;}
+ panel.classList.remove("hidden");
+ const q=x.question;
+ if($("hostAudiencePollQuestion"))$("hostAudiencePollQuestion").textContent=q?.text||"Audience Poll";
+ const c=x.pollCounts||{},total=Object.values(c).reduce((a,b)=>a+Number(b||0),0);
+ const opts=q?.options||["Option A","Option B","Option C","Option D"];
+ results.innerHTML=opts.map((o,i)=>{const n=Number(c[i]||0),pct=total?Math.round(n*100/total):0;return `<div class="pollVoteRow"><div><b>${String.fromCharCode(65+i)}. ${o}</b><strong>${pct}%</strong></div><div class="pollTrack"><i style="width:${pct}%"></i></div><small>${n} vote${n===1?"":"s"}</small></div>`}).join("")+`<div class="pollTotal">${total} total vote${total===1?"":"s"}</div>`;
+}
+
 function approveAudiencePoll(){s.emit("host:approveAudiencePoll")}
 function rejectAudiencePoll(){s.emit("host:rejectAudiencePoll")}
+s.on("poll",counts=>{ if(!audiencePollOpen)return; renderHostAudiencePoll({pollActive:true,pollCounts:counts,question:window.__hostQuestion||null}); });
 s.on("audiencePollStarted",d=>{if($("status"))$("status").innerHTML=`🗳️ <b>Audience Poll approved</b> — ${d.contestant?.name||"Contestant"} can use the audience lifeline.`});
 s.on("audiencePollRejected",d=>{if($("status"))$("status").innerHTML=`↶ <b>Audience Poll rejected</b> — ${d.contestant?.name||"Contestant"}`});

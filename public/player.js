@@ -1,5 +1,5 @@
 const s=io({transports:["websocket","polling"],reconnection:true,timeout:10000}),$=id=>document.getElementById(id);
-let me="",gameToken="",tvUniqueUrl="",hasJoined=false,fastSeq=[],fastIndex=0,fastTimer=null,fastStarted=false,eliminationTimer=null,eliminationUntil=0;
+let me="",gameToken="",tvUniqueUrl="",hasJoined=false,fastSeq=[],fastIndex=0,fastTimer=null,fastStarted=false,eliminationTimer=null,eliminationUntil=0,audiencePollCounts={},audiencePollActive=false;
 const prizeLadder=[100,200,300,500,1000,2000,5000,10000,20000,50000];
 function playerScore(users){const u=(users||[]).find(v=>v.employeeCode===me);return u?Number(u.score||0):0}
 function renderPlayerLadder(users){ /* hidden in the live player view */ }
@@ -128,6 +128,17 @@ function startPlayerWinnerAudio(until){
   };
   tick();playerWinnerTimer=setInterval(tick,250);
 }
+function renderAudiencePollResult(counts, question){
+ const el=$("audiencePollResult");
+ if(!el)return;
+ const c=counts||{};
+ const total=Object.values(c).reduce((a,b)=>a+Number(b||0),0);
+ if(!audiencePollActive){el.classList.add("hidden");el.innerHTML="";return;}
+ const opts=(question?.options)||["Option A","Option B","Option C","Option D"];
+ el.classList.remove("hidden");
+ el.innerHTML=`<div class="pollPanelTitle">🗳️ LIVE AUDIENCE POLL</div><div class="pollPanelQuestion">${question?.text||"Audience votes"}</div>`+opts.map((o,i)=>{const n=Number(c[i]||0),pct=total?Math.round(n*100/total):0;return `<div class="pollVoteRow"><div><b>${String.fromCharCode(65+i)}. ${o}</b><strong>${pct}%</strong></div><div class="pollTrack"><i style="width:${pct}%"></i></div><small>${n} vote${n===1?"":"s"}</small></div>`}).join("")+`<div class="pollTotal">${total} total vote${total===1?"":"s"}</div>`;
+}
+
 s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.users);
  if(eliminationUntil>Date.now()){
    return;
@@ -139,7 +150,7 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
  }
  clearInterval(eliminationTimer);
  if(x.phase==="registration"){
-   clearAnswerResult();
+   if(!audiencePollActive)clearAnswerResult();
    if(hasJoined){
      $("form").classList.add("hidden");
      $("game").classList.remove("hidden");
@@ -147,8 +158,8 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
    }
    return;
 }
- if(x.phase==="fastest"){clearAnswerResult();renderFastest(x.pool,x.fastestSequence,x.fastestStartAt,x.fastestDurationMs);$("life").innerHTML="";return}
- if(x.phase==="fastestResult"){clearAnswerResult();
+ if(x.phase==="fastest"){audiencePollActive=false;renderAudiencePollResult({},null);clearAnswerResult();renderFastest(x.pool,x.fastestSequence,x.fastestStartAt,x.fastestDurationMs);$("life").innerHTML="";return}
+ if(x.phase==="fastestResult"){audiencePollActive=false;renderAudiencePollResult({},null);clearAnswerResult();
    const iWon=x.winner&&x.winner.employeeCode===me;
    $("answers").innerHTML="";
    if(iWon){
@@ -158,12 +169,12 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
    }
    return
  }
- if(x.phase==="fastestTimeout"){clearAnswerResult();
+ if(x.phase==="fastestTimeout"){audiencePollActive=false;renderAudiencePollResult({},null);clearAnswerResult();
    $("answers").innerHTML="";
    $("status").innerHTML="⏳ <b>Waiting for the next Fastest Finger.</b><br>You remain registered and may be selected in the next round.";
    return}
- if(x.phase==="eliminated"){clearAnswerResult();$("status").innerHTML="❌ <b>Game result is being shown…</b>";return}
- if(x.phase==="question"&&x.question){clearAnswerResult();
+ if(x.phase==="eliminated"){audiencePollActive=false;renderAudiencePollResult({},null);clearAnswerResult();$("status").innerHTML="❌ <b>Game result is being shown…</b>";return}
+ if(x.phase==="question"&&x.question){if(!audiencePollActive)clearAnswerResult(); audiencePollActive=!!x.pollActive; audiencePollCounts=x.pollCounts||audiencePollCounts; renderAudiencePollResult(audiencePollCounts,x.question);
    if(x.contestant&&x.contestant.employeeCode===me){
      setQuizActive(true);
      hasJoined=true;
@@ -232,14 +243,20 @@ s.on("answerResult",r=>{
  }
 });
 s.on("audiencePollApproved",d=>{
-  const total=Object.values(d.counts||{}).reduce((a,b)=>a+Number(b||0),0);
+  audiencePollActive=true;
+  audiencePollCounts=d.counts||{};
   $("status").innerHTML="🗳️ <b>Audience Poll approved.</b><br>The audience can vote now.";
-  if($("result"))$("result").innerHTML=`<div class=box>🗳️ <b>LIVE AUDIENCE POLL</b><br>${[0,1,2,3].map(i=>`${String.fromCharCode(65+i)}: ${total?Math.round((Number((d.counts||{})[i]||0)*100)/total):0}%`).join(" • ")}</div>`;
+  renderAudiencePollResult(audiencePollCounts,null);
 });
 s.on("poll",counts=>{
+  audiencePollActive=true;
+  audiencePollCounts={...counts};
+  renderAudiencePollResult(audiencePollCounts,null);
   const total=Object.values(counts||{}).reduce((a,b)=>a+Number(b||0),0);
-  if($("result"))$("result").innerHTML=`<div class=box>🗳️ <b>LIVE AUDIENCE POLL</b><br>${[0,1,2,3].map(i=>`${String.fromCharCode(65+i)}: ${total?Math.round((Number((counts||{})[i]||0)*100)/total):0}%`).join(" • ")}</div>`;
+  if($("status") && total)$("status").innerHTML=`🗳️ <b>Audience Poll is live.</b><br>${total} audience vote${total===1?"":"s"} received.`;
 });
+s.on("audiencePollRejected",()=>{audiencePollActive=false;audiencePollCounts={};renderAudiencePollResult({},null);});
+s.on("audiencePollStopped",()=>{audiencePollActive=false;audiencePollCounts={};renderAudiencePollResult({},null);});
 s.on("lifelineResult",r=>{
  if(r.error){
    $("result").innerHTML=`<div class="box bad">⚠️ ${r.error}</div>`;
@@ -256,7 +273,7 @@ s.on("lifelineResult",r=>{
  if(r.type==="audience" && r.counts){
    const total=Object.values(r.counts).reduce((a,b)=>a+Number(b||0),0);
    const rows=[0,1,2,3].map(i=>`${String.fromCharCode(65+i)}: ${total?Math.round((Number(r.counts[i]||0)*100)/total):0}%`).join(" • ");
-   $("result").innerHTML=`<div class=box>🗳️ <b>Audience Poll</b><br>${rows}</div>`;
+   audiencePollActive=true; audiencePollCounts=r.counts||{}; renderAudiencePollResult(audiencePollCounts,null);
  }else{
    $("result").innerHTML='<div class=box>'+(r.message||"Lifeline used.")+"</div>";
  }

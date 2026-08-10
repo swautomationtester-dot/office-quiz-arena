@@ -990,3 +990,16 @@ body.tv #tvmain.qrMode .registrationLobbyLayout{
 /* v53 — audience poll must remain above the question transition and persist
    until the host explicitly closes the poll. */
 .pollStage{z-index:1000!important}
+
+/* v54 live audience poll panels */
+.audiencePollResult,.hostAudiencePoll{margin-top:14px;padding:16px 18px;border:1px solid #4aa8a8;border-radius:16px;background:rgba(0,35,39,.72);box-shadow:0 0 0 1px #ffffff08 inset;}
+.hostAudiencePoll.hidden,.audiencePollResult.hidden{display:none!important;}
+.pollPanelTitle{font-size:12px;letter-spacing:.18em;font-weight:800;color:#e7c85c;margin-bottom:8px;}
+.pollPanelQuestion{font-weight:800;margin-bottom:12px;line-height:1.35;}
+.pollVoteRow{margin:10px 0;}
+.pollVoteRow>div:first-child{display:flex;justify-content:space-between;gap:12px;margin-bottom:5px;}
+.pollVoteRow strong{color:#e7c85c;}
+.pollTrack{height:9px;background:#174e52;border-radius:99px;overflow:hidden;border:1px solid #2b7779;}
+.pollTrack i{display:block;height:100%;background:#e7c85c;border-radius:99px;transition:width .25s ease;}
+.pollVoteRow small,.pollTotal{display:block;color:#9dc5c5;font-size:12px;margin-top:4px;}
+.pollTotal{text-align:right;font-weight:700;margin-top:10px;}

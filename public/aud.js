@@ -80,3 +80,5 @@ s.on("poll",c=>{
  const total=Object.values(c||{}).reduce((a,b)=>a+Number(b||0),0);
  if(pollActive && joined && !submitted) setStatus(`🗳️ Poll is live — ${total} vote${total===1?"":"s"} received. Select your answer.`);
 });
+
+s.on("audiencePollStopped",()=>{pollActive=false;submitted=false;selected=null;renderAnswers({question:null});setStatus("Waiting for the Host to open the audience poll…");});
