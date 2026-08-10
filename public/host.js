@@ -23,7 +23,17 @@ function renderDemo(){
  <div class="demoNumber">STEP ${demoIndex+1} / ${demoSteps.length}</div><h3>${d.title}</h3><p>${d.text}</p>`;
 }
 function demoNext(){demoIndex=Math.min(demoSteps.length-1,demoIndex+1);renderDemo()}
-function demoPrev(){demoIndex=Math.max(0,demoIndex-1);renderDemo()}function openReg(){s.emit("host:openRegistration")}function pick7(){s.emit("host:pick7")}function restartFastest(){s.emit("host:restartFastest")}function startQuiz(){s.emit("host:startQuiz")}function next7(){s.emit("host:nextFastest")}function nextQ(){s.emit("host:nextQuestion")}function toggleAudiencePoll(){audiencePollOpen=!audiencePollOpen;s.emit(audiencePollOpen?"host:audiencePollStart":"host:audiencePollStop");updatePollButton()}function updatePollButton(){const b=$("audiencePollBtn");if(!b)return;b.textContent=audiencePollOpen?"🛑 Close Audience Poll":"🗳️ Ask Audience Poll";b.classList.toggle("danger",audiencePollOpen)}function participants(){const room=$("code").textContent.trim();if(room&&room!=="----")location.href=`/registered.html?room=${room}`}function restartEvent(){if(confirm("Reset the entire event?"))s.emit("host:restartEvent")}
+function demoPrev(){demoIndex=Math.max(0,demoIndex-1);renderDemo()}function openReg(){s.emit("host:openRegistration")}function pick7(){s.emit("host:pick7")}function restartFastest(){s.emit("host:restartFastest")}function startQuiz(){
+  const phase=window.__hostPhase||"";
+  if(phase!=="fastestResult"){
+    const winner=window.__hostWinnerName;
+    $("status").innerHTML=winner
+      ? `⏳ <b>${winner}</b> is selected. Wait for the Fastest Finger result.`
+      : "⚡ <b>Select 7 players and complete Fastest Finger first.</b>";
+    return;
+  }
+  s.emit("host:startQuiz");
+}function next7(){s.emit("host:nextFastest")}function nextQ(){s.emit("host:nextQuestion")}function toggleAudiencePoll(){audiencePollOpen=!audiencePollOpen;s.emit(audiencePollOpen?"host:audiencePollStart":"host:audiencePollStop");updatePollButton()}function updatePollButton(){const b=$("audiencePollBtn");if(!b)return;b.textContent=audiencePollOpen?"🛑 Close Audience Poll":"🗳️ Ask Audience Poll";b.classList.toggle("danger",audiencePollOpen)}function participants(){const room=$("code").textContent.trim();if(room&&room!=="----")location.href=`/registered.html?room=${room}`}function restartEvent(){if(confirm("Reset the entire event?"))s.emit("host:restartEvent")}
 function drawTimer(x){
  clearInterval(fastInterval);
  if(x.phase!=="fastest"){$("fastTimer").textContent="";return}
@@ -48,7 +58,41 @@ s.on("answerRejected",a=>{
 function approveAnswer(){s.emit("host:approveAnswer")}
 function rejectAnswer(){s.emit("host:rejectAnswer")}
 
-s.on("state",x=>{ audiencePollOpen=!!x.pollActive;renderHostAudiencePoll(x);updatePollButton();
+function updateFlowControls(x){
+  window.__hostPhase=x.phase||"";
+  window.__hostWinnerName=x.winner?.name||"";
+  const phase=x.phase||"";
+  const canPick=["registration","lobby","fastestTimeout","eliminated","finished"].includes(phase);
+  const canRestart=phase==="fastestTimeout" && Array.isArray(x.pool) && x.pool.length>0;
+  const canNext7=["fastestResult","fastestTimeout","eliminated"].includes(phase);
+  const canStart=phase==="fastestResult" && !!x.winner;
+  const canNextQ=phase==="question" && !x.pendingAnswer;
+  const canPoll=phase==="question" && !!x.winner;
+
+  const set=(id,disabled)=>{const el=$(id);if(el)el.disabled=disabled};
+  set("pick7Btn",!canPick);
+  set("restartFastestBtn",!canRestart);
+  set("next7Btn",!canNext7);
+  set("startQuizBtn",!canStart);
+  set("nextQuestionBtn",!canNextQ);
+  set("audiencePollBtn",!canPoll);
+
+  const labels={
+    lobby:"SETUP",
+    registration:"REGISTRATION OPEN",
+    fastest:"FASTEST FINGER",
+    fastestResult:"WINNER READY",
+    fastestTimeout:"FASTEST FINGER TIMEOUT",
+    question:`QUESTION ${Math.max(1,(x.current||0)+1)} OF ${x.totalQuestions||5}`,
+    eliminated:"PLAYER ELIMINATED",
+    winnerCelebration:"GAME COMPLETE",
+    finished:"READY FOR NEXT ROUND"
+  };
+  const fs=$("flowState");
+  if(fs)fs.textContent=labels[phase]||String(phase).toUpperCase();
+}
+
+s.on("state",x=>{ audiencePollOpen=!!x.pollActive;renderHostAudiencePoll(x);updatePollButton();updateFlowControls(x);
  $("reg").textContent=x.registered;
  const users=x.users||[];
  const played=users.filter(u=>u.status==="completed"||u.status==="eliminated"||u.played||u.inQuiz).length;
@@ -59,7 +103,7 @@ s.on("state",x=>{ audiencePollOpen=!!x.pollActive;renderHostAudiencePoll(x);upda
  if($("eliminated"))$("eliminated").textContent=eliminated;
  if($("waiting"))$("waiting").textContent=waiting;
  drawTimer(x);
- $("restartFastestBtn").disabled=!["fastestTimeout"].includes(x.phase);
+
  const msg={
  registration:"📝 Registration is OPEN.",
  fastest:`⚡ FASTEST FINGER — ${x.pool.length} selected. Watching live responses below.`,

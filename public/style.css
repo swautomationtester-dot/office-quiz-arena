@@ -1342,3 +1342,98 @@ body.tv .prizeDifficultyGuide strong{font-size:13px}
 @media(max-width:900px){
  .prizeDifficultyGuide{grid-template-columns:repeat(5,minmax(76px,1fr));overflow-x:auto}
 }
+
+
+/* v65 — host console flow redesign */
+.hostFlowCard{padding:22px}
+.hostFlowCard .sectionHead{align-items:center}
+.flowState{
+  flex:0 0 auto;
+  padding:8px 12px;
+  border:1px solid #e3c66a66;
+  border-radius:999px;
+  color:var(--gold);
+  background:#ffffff08;
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:1.5px;
+}
+.flowSection{
+  margin-top:14px;
+  padding:16px;
+  border:1px solid #ffffff14;
+  border-radius:16px;
+  background:#ffffff05;
+}
+.flowHeading{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  margin-bottom:12px;
+}
+.flowHeading>span{
+  display:grid;
+  place-items:center;
+  width:32px;height:32px;
+  flex:0 0 32px;
+  border-radius:50%;
+  background:#e3c66a;
+  color:#17373a;
+  font-weight:950;
+}
+.flowHeading h3{margin:0;font-size:16px}
+.flowHeading small{display:block;color:#9fc2bf;margin-top:3px}
+.flowButtons{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;
+}
+.flowButtons button{min-height:44px}
+.flowTools .flowButtons{grid-template-columns:repeat(2,minmax(0,1fr))}
+.flowButtons button:disabled{
+  opacity:.38;
+  cursor:not-allowed;
+  filter:saturate(.35);
+}
+.hostPrizeCard{
+  border:1px solid #ffffff18;
+  border-radius:18px;
+  padding:14px;
+  background:#022a2fd9;
+}
+.hostPrizeCard .sideTitle{margin:0 0 10px}
+.hostPrizeCard #hostLadder{max-width:none;margin:0}
+.hostPrizeCard #hostLadder .row{
+  border-bottom:1px solid #ffffff12;
+  padding:9px 8px;
+}
+.hostPrizeCard #hostLadder .row:last-child{border-bottom:0}
+.hostPrizeCard #hostLadder .ladderActive{
+  background:#e3c66a;
+  color:#17373a;
+  font-weight:950;
+}
+.tvPrizeCard{
+  border:1px solid #ffffff18;
+  border-radius:18px;
+  padding:14px;
+  background:#022a2fd9;
+}
+.tvPrizeTitle{font-weight:950;color:#fff;font-size:16px}
+.tvPrizeSub{font-size:11px;color:#9fc2bf;margin:3px 0 10px}
+body.tv #tvSideRail #prizeLadder .ladderRow{
+  padding:10px 8px;
+  font-size:13px;
+}
+body.tv #tvSideRail #prizeLadder .ladderRow.active{
+  background:#e3c66a;
+  color:#17373a;
+  font-weight:950;
+}
+@media(max-width:900px){
+  .flowButtons,.flowTools .flowButtons{grid-template-columns:1fr 1fr}
+}
+@media(max-width:560px){
+  .flowButtons,.flowTools .flowButtons{grid-template-columns:1fr}
+  .flowState{display:none}
+}
