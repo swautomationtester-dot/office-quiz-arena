@@ -4,6 +4,10 @@ const prizeLadder=[100,200,300,500,1000,2000,5000,10000,20000,50000];
 function playerScore(users){const u=(users||[]).find(v=>v.employeeCode===me);return u?Number(u.score||0):0}
 function renderPlayerLadder(users){ /* hidden in the live player view */ }
 function clearAnswerResult(){if($("result"))$("result").innerHTML="";}
+function setQuizActive(active){
+ const page=document.querySelector(".participantPage");
+ if(page)page.classList.toggle("quiz-active",!!active);
+}
 
 const q=new URLSearchParams(location.search);if(q.get("room"))$("room").value=q.get("room").replace(/\D/g,"").slice(0,4);gameToken=q.get("game")||"";
 function redirectToTV(){const room=$("room").value.trim().toUpperCase();if(tvUniqueUrl)location.href=tvUniqueUrl;else if(room)location.href=`/tv.html?room=${encodeURIComponent(room)}`}
@@ -161,6 +165,7 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
  if(x.phase==="eliminated"){clearAnswerResult();$("status").innerHTML="❌ <b>Game result is being shown…</b>";return}
  if(x.phase==="question"&&x.question){clearAnswerResult();
    if(x.contestant&&x.contestant.employeeCode===me){
+     setQuizActive(true);
      hasJoined=true;
      $("form").classList.add("hidden");
      $("connection").classList.add("hidden");
@@ -181,10 +186,11 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
      });
      const used=x.lifelines||{};
 const used5050=!!used["5050"],usedAudience=!!used["audience"],usedPhone=!!used["phone"];
-const lockAudience=used5050||usedAudience;
-const lock5050=usedAudience||used5050;
+const lockAudience=usedAudience;
+const lock5050=used5050;
 $("life").innerHTML=`<button onclick="life('5050')" ${lock5050?"disabled":""}>${used5050?"✓ ":""}50:50</button><button onclick="life('audience')" ${lockAudience?"disabled":""}>${usedAudience?"✓ ":""}Audience</button><button onclick="life('phone')" ${usedPhone?"disabled":""}>${usedPhone?"✓ ":""}Phone-a-Friend</button>`;
    }else{
+     setQuizActive(false);
      $("status").innerHTML="📺 <b>You are not the current contestant.</b><br>Watch the projector screen.";
      $("answers").innerHTML="";
      $("life").innerHTML="";
@@ -192,6 +198,7 @@ $("life").innerHTML=`<button onclick="life('5050')" ${lock5050?"disabled":""}>${
    return;
  }
  if(x.phase==="winnerCelebration"){
+  setQuizActive(true);
   clearAnswerResult();
   const iWon=x.winner&&x.winner.employeeCode===me;
   if(iWon){

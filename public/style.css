@@ -233,8 +233,8 @@
 }
 
 /* v24 audience poll on TV */
-.pollStage{min-height:calc(100vh - 150px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px 30px;box-sizing:border-box}
-.pollStage.hidden{display:none}
+.pollStage{position:fixed;z-index:100;inset:82px 0 0 0;min-height:calc(100vh - 82px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;box-sizing:border-box;background:radial-gradient(circle at 50% 20%,#116b70 0,#06464b 48%,#022d32 100%);overflow:auto}
+.pollStage.hidden{display:none!important}
 .pollStage h1{max-width:1100px;font-size:clamp(28px,3.5vw,58px);margin:8px auto 18px}
 .pollLiveLayout{width:min(1050px,92vw);display:grid;grid-template-columns:300px 1fr;gap:30px;align-items:center}
 .pollQrFrame{background:#fff;border-radius:20px;padding:14px;width:300px;height:300px;box-sizing:border-box}
@@ -979,3 +979,10 @@ body.tv #tvmain.qrMode .registrationLobbyLayout{
 @media(max-width:700px){
   body.tv #tvmain.qrMode{padding:18px 12px 60px;}
 }
+
+/* v50: once the Fastest Finger winner enters the quiz, remove the registration form/header area. */
+.participantPage.quiz-active > .eyebrow,
+.participantPage.quiz-active > h1,
+.participantPage.quiz-active > #connection,
+.participantPage.quiz-active > #form { display:none !important; }
+.participantPage.quiz-active > #game { margin-top:24px; }
