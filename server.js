@@ -23,36 +23,28 @@ function requireAdmin(req,res,next){
 }
 app.use(express.json());app.use(express.static(path.join(__dirname,"public")));
 
-const fallback=[
-{text:"Which planet is known as the Red Planet?",options:["Venus","Mars","Jupiter","Mercury"],answer:1,points:100},
-{text:"What is the capital of India?",options:["Mumbai","New Delhi","Chennai","Kolkata"],answer:1,points:200},
-{text:"Which company created Windows?",options:["Apple","IBM","Microsoft","Google"],answer:2,points:300},
-{text:"How many sides does a hexagon have?",options:["5","6","7","8"],answer:1,points:500},
-{text:"Which ocean is the largest?",options:["Atlantic","Indian","Pacific","Arctic"],answer:2,points:1000},
-{text:"Which gas do plants primarily absorb?",options:["Oxygen","Nitrogen","Carbon Dioxide","Hydrogen"],answer:2,points:2000},
-{text:"How many continents are there?",options:["5","6","7","8"],answer:2,points:5000}
-];
+const fallback=[];
 let db=null;
 async function initDb(){
  if(!process.env.DB_HOST)return;
  db=await mysql.createPool({host:process.env.DB_HOST,user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,port:Number(process.env.DB_PORT||3306),connectionLimit:5});
  await db.query(`CREATE TABLE IF NOT EXISTS questions(id INT AUTO_INCREMENT PRIMARY KEY,text_q TEXT NOT NULL,option_a VARCHAR(500) NOT NULL,option_b VARCHAR(500) NOT NULL,option_c VARCHAR(500) NOT NULL,option_d VARCHAR(500) NOT NULL,answer_idx TINYINT NOT NULL,points INT NOT NULL DEFAULT 100)`);
- const [n]=await db.query("SELECT COUNT(*) c FROM questions");
- if(!n[0].c)for(const q of fallback)await db.query("INSERT INTO questions(text_q,option_a,option_b,option_c,option_d,answer_idx,points) VALUES(?,?,?,?,?,?,?)",[q.text,...q.options,q.answer,q.points]);
+ // v59: bundled questions.json is authoritative; do not seed the old
+ // fallback questions into the database.
 }
 async function questions(){
- if(!db)return structuredClone(independenceBank);
- const [rows]=await db.query("SELECT * FROM questions ORDER BY id");
- return rows.map(r=>({id:r.id,text:r.text_q,options:[r.option_a,r.option_b,r.option_c,r.option_d],answer:r.answer_idx,points:r.points}));
+ const bank=JSON.parse(fs.readFileSync(path.join(__dirname,"questions.json"),"utf8"));
+ return structuredClone(bank);
 }
 
 // Build a fresh 5-question game from the question bank.
 // Questions progress from easy to hard and never repeat the same source fact
 // within a game. Options are shuffled so the correct answer is not always
 // in the same position.
-const GAME_POINTS=[100,200,300,500,50000];
+const GAME_POINTS=[1000,2000,5000,10000,50000];
 const GAME_DIFFICULTY=[1,2,3,4,5];
 const TOTAL_QUESTIONS=5;
+const QUESTION_BANK_VERSION="INDIA-INDEPENDENCE-10-v1";
 
 function shuffleCopy(arr){
  const a=Array.isArray(arr)?arr.slice():[];
@@ -62,63 +54,24 @@ function shuffleCopy(arr){
  }
  return a;
 }
-function questionDifficulty(q){
- const d=Number(q?.difficulty);
- if(Number.isFinite(d)&&d>=1&&d<=5)return d;
- const p=Number(q?.points||100);
- if(p<=100)return 1;
- if(p<=200)return 2;
- if(p<=500)return 3;
- if(p<=1000)return 4;
- return 5;
-}
-function questionFact(q){
- return String(q?.sourceFact||q?.text||"").trim().toLowerCase();
-}
 function buildGameQuestions(bank){
- const groups=new Map([1,2,3,4,5].map(d=>[d,[]]));
- for(const q of (bank||[])){
-   const d=questionDifficulty(q);
-   if(groups.has(d))groups.get(d).push(q);
- }
- const usedFacts=new Set();
+ const groups=[
+   (bank||[]).filter(q=>Number(q.difficulty)===1),
+   (bank||[]).filter(q=>Number(q.difficulty)===2),
+   (bank||[]).filter(q=>Number(q.difficulty)===3),
+   (bank||[]).filter(q=>Number(q.difficulty)===4)
+ ];
  const selected=[];
- for(const d of GAME_DIFFICULTY){
-   let candidates=shuffleCopy(groups.get(d)||[]).filter(q=>{
-     const fact=questionFact(q);
-     return fact && !usedFacts.has(fact);
-   });
-   // If a difficulty has no unused item, fall back to any item from that band.
-   if(!candidates.length)candidates=shuffleCopy(groups.get(d)||[]);
-   if(!candidates.length)continue;
-   const q=structuredClone(candidates[0]);
-   const fact=questionFact(q);
-   if(fact)usedFacts.add(fact);
-
-   const originalOptions=Array.isArray(q.options)?q.options.slice():[];
-   const correctValue=originalOptions[Number(q.answer)];
-   const shuffled=shuffleCopy(originalOptions);
-   q.options=shuffled;
-   q.answer=Math.max(0,shuffled.indexOf(correctValue));
-   q.points=GAME_POINTS[selected.length]||q.points||100;
-   q.difficulty=d;
-   selected.push(q);
- }
- // Safety fallback: return up to 5 questions if the bank is unexpectedly small.
- if(selected.length<TOTAL_QUESTIONS){
-   const remaining=shuffleCopy(bank||[]).filter(q=>!selected.some(x=>questionFact(x)===questionFact(q)));
-   for(const raw of remaining){
-     if(selected.length>=TOTAL_QUESTIONS)break;
-     const q=structuredClone(raw);
-     const correctValue=(q.options||[])[Number(q.answer)];
-     q.options=shuffleCopy(q.options||[]);
-     q.answer=Math.max(0,q.options.indexOf(correctValue));
-     q.points=GAME_POINTS[selected.length]||100;
-     q.difficulty=questionDifficulty(q);
-     selected.push(q);
-   }
- }
- return selected.slice(0,TOTAL_QUESTIONS);
+ [1,1,1,2].forEach((count,g)=>selected.push(...shuffleCopy(groups[g]).slice(0,count)));
+ const game=selected.slice(0,TOTAL_QUESTIONS);
+ game.forEach((q,index)=>{
+   const original=q.options.slice(), correct=original[q.answer];
+   q.options=shuffleCopy(original);
+   q.answer=q.options.indexOf(correct);
+   q.points=GAME_POINTS[index];
+   q.difficulty=index+1;
+ });
+ return game;
 }
 
 const rooms=new Map();
