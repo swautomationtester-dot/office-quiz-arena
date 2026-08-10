@@ -121,7 +121,7 @@ function buildGameQuestions(bank){
 }
 
 const rooms=new Map();
-function makeRoom(){return{host:null,users:new Map(),questions:[],current:-1,phase:"lobby",pool:[],winner:null,completed:new Set(),failed:new Set(),answers:new Map(),pendingAnswer:null,pendingPollRequest:null,poll:new Map(),lifelines:new Set(),timer:null,fastestSize:7,fastestStartAt:0,fastestDurationMs:15000,fastestSequence:[],fastestTimes:new Map(),fastestProgress:new Map(),fastestToken:"",fastestJoinUrl:"",fastestJoinQr:"",screenToken:"",screenUrl:"",screenQr:"",audiencePollUrl:"",audiencePollQr:"",pollActive:false,winnerCelebrationUntil:0,contestantId:null,ladder:[100,200,300,500,1000,2000,5000,10000,20000,50000]}}
+function makeRoom(){return{host:null,users:new Map(),questions:[],current:-1,phase:"lobby",pool:[],winner:null,completed:new Set(),played:new Set(),failed:new Set(),answers:new Map(),pendingAnswer:null,pendingPollRequest:null,poll:new Map(),lifelines:new Set(),timer:null,fastestSize:7,fastestStartAt:0,fastestDurationMs:15000,fastestSequence:[],fastestTimes:new Map(),fastestProgress:new Map(),fastestToken:"",fastestJoinUrl:"",fastestJoinQr:"",screenToken:"",screenUrl:"",screenQr:"",audiencePollUrl:"",audiencePollQr:"",pollActive:false,winnerCelebrationUntil:0,contestantId:null,ladder:[100,200,300,500,1000,2000,5000,10000,20000,50000]}}
 function active(r){return [...r.users.values()].filter(u=>u.status==="active")}
 function emitState(code){
  const r=rooms.get(code);if(!r)return;
@@ -170,17 +170,12 @@ function emitState(code){
 }
 async function startFastest(r, keepPool=false){
  if(!keepPool){
-  // Every registered player who has not completed the main game can get
-  // another Fastest Finger chance. A previous Fastest Finger miss or quiz
-  // elimination must NOT permanently remove the player from future rounds.
-  for(const u of r.users.values()){
-    if(u.status==="eliminated" && !r.completed.has(u.employeeCode)){
-      u.status="active";
-      u.inPool=false;
-    }
-  }
+  // A player who has already entered the main quiz is permanently out of
+  // the Fastest Finger queue for this event. Players who only missed a
+  // Fastest Finger round remain eligible for a later selection.
   const eligible=[...r.users.values()]
     .filter(u=>u.status==="active")
+    .filter(u=>!r.played.has(u.employeeCode))
     .filter(u=>!r.completed.has(u.employeeCode))
     .filter(u=>u.id!==r.contestantId)
     .filter(u=>!u.inPool);
@@ -233,14 +228,10 @@ function nextContestant(code){
    x.winner=null;
    x.pool=[];
    x.contestantId=null;
-   // Give the eliminated contestant another chance in the next
-   // Fastest Finger round instead of permanently excluding them.
-   for(const u of x.users.values()){
-     u.inPool=false;
-     if(u.status==="eliminated" && !x.completed.has(u.employeeCode)){
-       u.status="active";
-     }
-   }
+   // The contestant has already played the main quiz and must not return
+   // to the Fastest Finger queue. Only players who lost Fastest Finger
+   // itself remain eligible for later selections.
+   for(const u of x.users.values()) u.inPool=false;
    await startFastest(x,false);
    emitState(code);
  },5000);
@@ -257,7 +248,7 @@ app.get("/screen/:token",(req,res)=>{
  if(!entry)return res.status(404).send("This TV screen link has expired or is invalid.");
  res.sendFile(path.join(__dirname,"public","tv.html"));
 });
-app.get("/health",(req,res)=>res.json({ok:true,service:"perficient-office-quiz-arena",version:"43.1.0"}));
+app.get("/health",(req,res)=>res.json({ok:true,service:"perficient-office-quiz-arena",version:"52.0.0"}));
 app.get("/api/questions",async(req,res)=>{try{res.json(await questions())}catch(e){res.status(500).json({error:e.message})}});
 app.post("/api/admin/login",(req,res)=>{
  const {username,password}=req.body||{};
@@ -395,6 +386,10 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  s.on("host:startQuiz",async()=>{
  const r=rooms.get(s.data.room);if(!r||r.host!==s.id||!r.winner)return;
  r.contestantId=r.winner.id;
+ // Mark the player as having participated as soon as the host starts the
+ // quiz. This prevents the same player from appearing in any later
+ // Fastest Finger selection, even if they are eliminated before Q10.
+ r.played.add(r.winner.employeeCode);
  const bank=await questions();
  r.questions=buildGameQuestions(bank);
  r.phase="question";r.current=0;r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();if(r.winner)r.winner.lifelinesUsed={"5050":false,"audience":false,"phone":false};
@@ -418,7 +413,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  }else r.phase="question";
  emitState(s.data.room);
 });
- s.on("host:restartEvent",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;for(const u of r.users.values()){u.score=0;u.status="active";u.inPool=false;u.lifelinesUsed={"5050":false,"audience":false,"phone":false}}r.contestantId=null;r.failed.clear();r.pool=[];r.winner=null;r.current=-1;r.phase="registration";emitState(s.data.room)});
+ s.on("host:restartEvent",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;for(const u of r.users.values()){u.score=0;u.status="active";u.inPool=false;u.lifelinesUsed={"5050":false,"audience":false,"phone":false}}r.contestantId=null;r.failed.clear();r.completed.clear();r.played.clear();r.pool=[];r.winner=null;r.current=-1;r.phase="registration";emitState(s.data.room)});
  s.on("player:answer",({choice})=>{
   const r=rooms.get(s.data.room);if(!r||r.phase!=="question")return;
   const u=r.users.get(s.id);
