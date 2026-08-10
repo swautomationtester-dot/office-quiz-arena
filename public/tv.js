@@ -303,7 +303,15 @@ s.on("state",x=>{ latestTvState=x;try{
  if(x.phase==="eliminated"){
  const e=x.eliminatedContestant;
  $("tvmain").innerHTML=`<div class=elimination><div class=tvkicker>CONTESTANT ELIMINATED</div><div class=wrongX>✕</div><h1>WRONG ANSWER</h1><h2>${e?e.name:"Contestant"}</h2><p>Well played!</p><div class=securedPoints>POINTS SECURED <b>₹${Number(e?.pointsEarned||0).toLocaleString("en-IN")}</b></div><div class=nextBadge>NEXT: FASTEST FINGER</div></div>`;return}
- if(x.phase==="question"&&x.question){if(lastQuestion!==x.current){transition("NEW CONTESTANT GAME",`QUESTION ${x.current+1} OF 10`);setTimeout(()=>{$("tvmain").innerHTML=`<div class=questionScreen><div class=qmeta><span>QUESTION ${x.current+1} OF 10</span><span>₹${x.question.points.toLocaleString("en-IN")}</span></div><h1>${x.question.text}</h1><div class=tvopts>${x.question.options.map((o,i)=>`<div><b>${String.fromCharCode(65+i)}</b><span>${o}</span></div>`).join("")}</div></div>`;tone(440,.18);tone(660,.22,"sine",.05,.18)},650);lastQuestion=x.current}return}
+ if(x.phase==="question"&&x.question){if(lastQuestion!==x.current){transition("NEW CONTESTANT GAME",`QUESTION ${x.current+1} OF 10`);setTimeout(()=>{
+   $("tvmain").innerHTML=`<div class=questionScreen><div class=qmeta><span>QUESTION ${x.current+1} OF 10</span><span>₹${x.question.points.toLocaleString("en-IN")}</span></div><h1>${x.question.text}</h1><div class=tvopts>${x.question.options.map((o,i)=>`<div><b>${String.fromCharCode(65+i)}</b><span>${o}</span></div>`).join("")}</div></div>`;
+   tone(440,.18);tone(660,.22,"sine",.05,.18);
+   // The delayed question transition used to overwrite the audience-poll
+   // overlay about 650ms after the poll opened. Always restore the poll after
+   // the question DOM is ready so the live result remains visible until the
+   // host explicitly closes the poll.
+   if(latestTvState?.pollActive){renderPoll(latestTvState);}
+ },650);lastQuestion=x.current}return}
  if(x.phase==="winnerCelebration"){
   const winner=x.winner||{};
   const until=Number(x.winnerCelebrationUntil||Date.now()+30000);

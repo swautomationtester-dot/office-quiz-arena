@@ -986,3 +986,7 @@ body.tv #tvmain.qrMode .registrationLobbyLayout{
 .participantPage.quiz-active > #connection,
 .participantPage.quiz-active > #form { display:none !important; }
 .participantPage.quiz-active > #game { margin-top:24px; }
+
+/* v53 — audience poll must remain above the question transition and persist
+   until the host explicitly closes the poll. */
+.pollStage{z-index:1000!important}

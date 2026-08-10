@@ -61,10 +61,16 @@ function renderPoll(c){
 }
 
 s.on("state",x=>{
+ const wasSubmitted=submitted;
+ const previousChoice=selected;
  pollActive=!!x.pollActive;
  if(!pollActive){submitted=false;selected=null}
  if(x.question)renderAnswers(x);
  if(x.pollCounts)renderPoll(x.pollCounts);
+ if(wasSubmitted && previousChoice!==null && pollActive){
+   submitted=true;selected=previousChoice;
+   renderAnswers(x);
+ }
  setStatus(pollActive
    ?(submitted?`✓ Vote submitted: ${String.fromCharCode(65+selected)}. Your vote is counted live.`:"🗳️ Poll is open — select your answer.")
    :"Waiting for the Host to open the audience poll…");
