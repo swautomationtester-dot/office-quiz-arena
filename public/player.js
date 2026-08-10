@@ -10,7 +10,7 @@ function playQuestionAudio(questionIndex){
     questionAudio.play().catch(()=>{});
   }catch(e){}
 }
-const prizeLadder=[100,200,300,500,50000];
+const prizeLadder=[1000,2000,5000,10000,50000];
 function playerScore(users){const u=(users||[]).find(v=>v.employeeCode===me);return u?Number(u.score||0):0}
 function renderPlayerLadder(users){ /* hidden in the live player view */ }
 function clearAnswerResult(){if($("result"))$("result").innerHTML="";}

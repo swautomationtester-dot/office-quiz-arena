@@ -1277,3 +1277,68 @@ body.tv #prizeLadder .ladderRow.active {
 body.tv #prizeLadder .ladderRow.reached {
   opacity: .55;
 }
+
+/* ============================================================
+   v62 — GAME SHOW POLISH + HOST DEMO MODE
+   ============================================================ */
+.statsModern{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.participantStatusRow{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.statusPill{font-size:10px;font-weight:900;letter-spacing:.06em;padding:5px 8px;border-radius:999px;background:#ffffff12;color:#d8e5e3}
+.statusPill.active,.statusPill.playing{background:#1b8d72;color:#fff}
+.statusPill.waiting,.statusPill.registered{background:#ffffff12;color:#e7eeee}
+.statusPill.eliminated{background:#7b3030;color:#fff}
+.statusPill.completed{background:#b58a28;color:#fff}
+.demoModal{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.72);backdrop-filter:blur(8px)}
+.demoModal.hidden{display:none}
+.demoCard{position:relative;width:min(720px,96vw);padding:32px;border:1px solid #ffffff20;border-radius:26px;background:linear-gradient(145deg,#063c40,#022a2f);box-shadow:0 30px 100px #0008;color:#fff}
+.demoClose{position:absolute;right:14px;top:12px;border:0;background:#ffffff12;color:#fff;width:38px;height:38px;border-radius:50%;font-size:25px}
+.demoStage{margin:24px 0;padding:28px;border-radius:20px;background:#ffffff08;border:1px solid #ffffff12;min-height:210px}
+.demoProgress{display:flex;gap:6px;margin-bottom:20px}.demoProgress i{height:5px;flex:1;border-radius:99px;background:#ffffff18}.demoProgress i.on{background:#e7c55b}.demoProgress i.done{background:#5ebd9f}
+.demoNumber{font-size:11px;font-weight:900;letter-spacing:.15em;color:#e7c55b}.demoStage h3{font-size:30px;margin:8px 0}.demoStage p{font-size:17px;line-height:1.55;color:#c9d8d5}.demoControls{display:flex;justify-content:space-between;gap:12px}
+.demoControls button{min-width:130px}
+body.tv .finalQuestion{border:2px solid #e7c55b!important;box-shadow:0 0 40px #e7c55b22!important}
+body.tv .finalQuestion h1{font-size:clamp(34px,3vw,48px)!important}
+body.tv .finalBadge{display:inline-flex;align-items:center;justify-content:center;margin:8px auto 0;padding:8px 16px;border-radius:999px;background:#e7c55b;color:#062f32;font-weight:950;letter-spacing:.05em;font-size:14px}
+body.tv .questionScreen .answerLock{font-size:16px}
+body.tv .questionScreen .answerLock.correctResult{border-color:#48d39c!important;box-shadow:0 0 30px #48d39c25}
+body.tv .questionScreen .answerLock.wrongResult{border-color:#ff7272!important;box-shadow:0 0 30px #ff727225}
+body.tv .tvopts div.selectedAnswer{border-color:#e7c55b!important;box-shadow:0 0 22px #e7c55b25}
+@media(max-width:900px){.statsModern{grid-template-columns:repeat(2,minmax(0,1fr))!important}.participantStatusRow{grid-template-columns:1fr auto}}
+
+/* v63 — unified prize + difficulty guide across screens */
+.prizeDifficultyGuide{
+ display:grid;
+ grid-template-columns:repeat(5,minmax(0,1fr));
+ gap:6px;
+ margin:10px 0 14px;
+ padding:8px;
+ border:1px solid rgba(255,255,255,.12);
+ border-radius:14px;
+ background:rgba(255,255,255,.045);
+}
+.prizeDifficultyGuide>div{
+ min-width:0;
+ display:flex;
+ flex-direction:column;
+ gap:2px;
+ padding:8px 7px;
+ border-radius:10px;
+ background:rgba(255,255,255,.035);
+ text-align:center;
+}
+.prizeDifficultyGuide b{font-size:10px;opacity:.7;letter-spacing:.08em}
+.prizeDifficultyGuide strong{font-size:14px}
+.prizeDifficultyGuide span{font-size:9px;font-weight:800;white-space:nowrap}
+body.tv .prizeDifficultyGuide{
+ position:absolute;
+ left:14px;
+ bottom:14px;
+ width:min(690px,calc(100vw - 290px));
+ margin:0;
+ z-index:8;
+}
+body.tv .prizeDifficultyGuide>div{padding:7px 5px}
+body.tv .prizeDifficultyGuide strong{font-size:13px}
+@media(max-width:900px){
+ .prizeDifficultyGuide{grid-template-columns:repeat(5,minmax(76px,1fr));overflow-x:auto}
+}
