@@ -1247,3 +1247,33 @@ body.tv #tvSideRail::-webkit-scrollbar {
   opacity: .42;
   filter: grayscale(.25);
 }
+
+/* v58 — fixed five-question KBC ladder */
+body.tv #prizeLadder {
+  width: 250px !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  padding: 10px !important;
+}
+body.tv #prizeLadder .ladderRow {
+  display: flex !important;
+  min-height: 34px !important;
+  padding: 7px 10px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+body.tv #prizeLadder .ladderRow span {
+  width: 24px;
+  opacity: .8;
+}
+body.tv #prizeLadder .ladderRow b {
+  font-size: 15px !important;
+}
+body.tv #prizeLadder .ladderRow.active {
+  background: #e3c66a !important;
+  color: #022a2f !important;
+  border-radius: 9px !important;
+}
+body.tv #prizeLadder .ladderRow.reached {
+  opacity: .55;
+}

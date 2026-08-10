@@ -57,7 +57,8 @@ s.on("state",x=>{ audiencePollOpen=!!x.pollActive;renderHostAudiencePoll(x);upda
  $("fastResults").innerHTML=x.fastestTimes?.length?
    `<h3>Fastest Finger Times</h3>`+x.fastestTimes.sort((a,b)=>a.time-b.time).map(v=>`<div class=row><span>${v.name} <small>${v.employeeCode}</small></span><b>${v.status==="COMPLETED"?v.time.toFixed(0)+" ms":v.status}</b></div>`).join(""):"";
 
- $("hostLadder").innerHTML=(x.ladder||[]).map((v,i)=>`<div class="row ${i===x.current?"ladderActive":""}"><span>Q${i+1}</span><b>₹${v.toLocaleString("en-IN")}</b></div>`).join("");
+ const fixedLadder=[100,200,300,500,50000];
+$("hostLadder").innerHTML=fixedLadder.map((v,i)=>`<div class="row ${i===x.current?"ladderActive":""}"><span>Q${i+1}</span><b>₹${v.toLocaleString("en-IN")}</b></div>`).join("");
  $("board").innerHTML=x.users.filter(u=>u.status!=="eliminated").sort((a,b)=>b.score-a.score).map((u,i)=>`<div class=row><span>#${i+1} ${u.name}</span><b>${u.score}</b></div>`).join("");
 });
 

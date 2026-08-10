@@ -139,7 +139,16 @@ function tone(freq,duration,type="sine",gain=.045,delay=0){if(!soundOn)return;tr
 function fanfare(){[523,659,784,1047].forEach((n,i)=>tone(n,.22,"sine",.06,i*.13))}
 function wrong(){tone(180,.35,"sawtooth",.06);tone(110,.5,"sawtooth",.05,.18)}
 function tick(){tone(700,.06,"square",.025)}
-function renderLadder(current){const ladder=$("prizeLadder");if(!ladder)return;ladder.innerHTML=prizes.slice().reverse().map((v,ri)=>{const i=prizes.length-1-ri;return `<div class="ladderRow ${i===current?"active":""} ${i<current?"reached":""}"><span>${i+1}</span><b>₹${v.toLocaleString("en-IN")}</b></div>`}).join("")}
+function renderLadder(current){
+ const ladder=$("prizeLadder");if(!ladder)return;
+ const five=[100,200,300,500,50000];
+ ladder.innerHTML=five.slice().reverse().map((v,ri)=>{
+   const i=five.length-1-ri;
+   return `<div class="ladderRow ${i===current?"active":""} ${i<current?"reached":""}">
+     <span>${i+1}</span><b>₹${v.toLocaleString("en-IN")}</b>
+   </div>`;
+ }).join("");
+}
 function transition(title,sub=""){ removeCls($("tvmain"),"tv-enter");void $("tvmain").offsetWidth;$("tvmain").classList.add("tv-enter");$("tvmain").innerHTML=`<div class=transition><div class=spinnerRing></div><div class=tvkicker>${title}</div><h1>${sub}</h1></div>`}
 function countdown(seconds,onDone,pool=[],allUsers=[]){
  let n=seconds;

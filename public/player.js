@@ -191,14 +191,14 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
      $("form").classList.add("hidden");
      $("connection").classList.add("hidden");
      $("game").classList.remove("hidden");answerLocked=!!x.pendingAnswer;
-     fiftyFiftyRemoved=x.fiftyFiftyRemoved||[];
+     fiftyFiftyRemoved=Array.isArray(x.fiftyFiftyRemoved)?x.fiftyFiftyRemoved.map(Number):[];
      $("status").innerHTML=`<div class=eyebrow>YOUR GAME • QUESTION ${x.current+1} OF ${(x.totalQuestions||5)} • ${x.question.points} POINTS</div><br><b>${x.question.text}</b>`;
      $("answers").innerHTML="";
      x.question.options.forEach((o,i)=>{
        const b=document.createElement("button");
        b.className="answer";
        b.textContent=`${String.fromCharCode(65+i)}. ${o}`;
-       if((x.fiftyFiftyRemoved||[]).includes(i)){
+       if(fiftyFiftyRemoved.includes(i)){
          b.classList.add("eliminatedOption");
          b.innerHTML=`<span class="fiftyStrike">✕</span> OPTION REMOVED`;
          b.disabled=true;
@@ -208,7 +208,7 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
          b.innerHTML=`🔒 ${String.fromCharCode(65+i)}. ${o} <span>LOCKED</span>`;
          b.disabled=true;
        }
-       b.onclick=()=>answer(i);
+       b.onclick=()=>{ if(!fiftyFiftyRemoved.includes(i)) answer(i); };
        $("answers").appendChild(b);
      });
      const used=x.lifelines||{};
