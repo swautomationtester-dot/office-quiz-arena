@@ -1,5 +1,76 @@
-const s=io();const $=x=>document.getElementById(x);const qp=new URLSearchParams(location.search);if(qp.get("room"))$("room").value=qp.get("room");
-function join(){s.emit("join",{code:$("room").value,name:"Audience",role:"audience",employeeCode:"AUD-"+Math.random().toString(36).slice(2,9)})}
-s.on("joined",()=>{$("area").classList.remove("hidden")});s.on("errorMsg",alert);
-s.on("state",x=>{if(x.question){$("q").innerHTML=x.question.text;$("answers").innerHTML=x.question.options.map((o,i)=>`<button class=answer onclick="s.emit('audience:poll',{choice:${i}})">${String.fromCharCode(65+i)}. ${o}</button>`).join("")}});
-s.on("poll",c=>{let t=Object.values(c).reduce((a,b)=>a+b,0)||1;$("poll").innerHTML=[0,1,2,3].map(i=>{let p=Math.round((c[i]||0)*100/t);return `<div class=bar><i style=width:${p}%></i><span>${String.fromCharCode(65+i)}</span><em>${p}%</em></div>`}).join("")})
+const s=io({transports:["websocket","polling"],reconnection:true}),$=id=>document.getElementById(id);
+const q=new URLSearchParams(location.search);
+const roomFromUrl=(q.get("room")||"").trim().toUpperCase();
+if(roomFromUrl && $("room"))$("room").value=roomFromUrl;
+let pollActive=false,selected=null,joined=false,submitted=false;
+
+function setStatus(text,kind=""){
+ const el=$("status");if(!el)return;
+ el.textContent=text;el.className=`box ${kind}`.trim();
+}
+function join(){
+ const code=($("room")?.value||"").trim().toUpperCase();
+ if(!code){setStatus("Enter the room code first.","errorText");return}
+ setStatus("Connecting to the audience poll…");
+ s.emit("join",{code,role:"audience",name:"Audience",employeeCode:"AUD-"+Math.random().toString(36).slice(2,8)});
+}
+s.on("connect",()=>{if(roomFromUrl&&!joined)join()});
+s.on("joined",()=>{
+ joined=true;
+ $("area")?.classList.remove("hidden");
+ setStatus(pollActive?"🗳️ Poll is open — select your answer.":"Waiting for the Host to open the audience poll…");
+});
+s.on("errorMsg",msg=>setStatus(msg,"errorText"));
+
+function renderAnswers(x){
+ if(!x.question)return;
+ const qEl=$("q"),aEl=$("answers");
+ if(qEl)qEl.textContent=x.question.text;
+ if(!aEl)return;
+ aEl.innerHTML=x.question.options.map((o,i)=>
+   `<button class="answer ${selected===i?"selectedAnswer":""} ${submitted&&selected===i?"submittedAnswer":""}" data-choice="${i}" ${submitted?"disabled":""}>
+    <b>${String.fromCharCode(65+i)}.</b> ${o}
+   </button>`).join("");
+ aEl.querySelectorAll(".answer").forEach(b=>b.addEventListener("click",()=>{
+   if(!pollActive||submitted)return;
+   selected=Number(b.dataset.choice);
+   aEl.querySelectorAll(".answer").forEach(z=>z.classList.remove("selectedAnswer","submittedAnswer"));
+   b.classList.add("selectedAnswer");
+   setStatus(`Answer ${String.fromCharCode(65+selected)} selected. Sending your vote…`);
+   s.emit("audience:poll",{choice:selected},result=>{
+     if(result?.ok){
+       submitted=true;
+       b.classList.remove("selectedAnswer");
+       b.classList.add("submittedAnswer");
+       aEl.querySelectorAll(".answer").forEach(z=>z.disabled=true);
+       setStatus(`✓ Vote submitted: ${String.fromCharCode(65+selected)}. Your vote is counted live.`);
+     }else{
+       setStatus(result?.error||"Vote was not accepted.","errorText");
+     }
+   });
+ }));
+}
+
+function renderPoll(c){
+ const total=Object.values(c||{}).reduce((a,b)=>a+Number(b||0),0);
+ const el=$("poll");if(!el)return;
+ el.innerHTML=total?[0,1,2,3].map(i=>{
+   const p=Math.round((Number(c[i]||0)*100)/total);
+   return `<div class="bar"><i style="width:${p}%"></i><span>${String.fromCharCode(65+i)}</span><em>${p}%</em></div>`;
+ }).join(""):"<div class=muted>Waiting for votes…</div>";
+}
+
+s.on("state",x=>{
+ pollActive=!!x.pollActive;
+ if(!pollActive){submitted=false;selected=null}
+ if(x.question)renderAnswers(x);
+ if(x.pollCounts)renderPoll(x.pollCounts);
+ setStatus(pollActive
+   ?(submitted?`✓ Vote submitted: ${String.fromCharCode(65+selected)}. Your vote is counted live.`:"🗳️ Poll is open — select your answer.")
+   :"Waiting for the Host to open the audience poll…");
+});
+s.on("poll",c=>{
+ renderPoll(c);
+ const total=Object.values(c||{}).reduce((a,b)=>a+Number(b||0),0);
+ if(pollActive && joined && !submitted) setStatus(`🗳️ Poll is live — ${total} vote${total===1?"":"s"} received. Select your answer.`);
+});
