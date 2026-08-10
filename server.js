@@ -328,7 +328,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  io.to(s.data.room).emit("audiencePollStarted",{contestant:{name:r.winner.name,employeeCode:r.winner.employeeCode}});
  emitState(s.data.room);
 });
- s.on("host:audiencePollStop",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;r.pollActive=false;emitState(s.data.room)});
+ s.on("host:audiencePollStop",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;r.pollActive=false;io.to(s.data.room).emit("audiencePollStopped");emitState(s.data.room)});
  s.on("host:pick7",async()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;await pick7(r);emitState(s.data.room)});
  s.on("fastest:progress",({value})=>{
   const r=rooms.get(s.data.room);
