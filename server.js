@@ -46,7 +46,7 @@ async function questions(){
  return rows.map(r=>({id:r.id,text:r.text_q,options:[r.option_a,r.option_b,r.option_c,r.option_d],answer:r.answer_idx,points:r.points}));
 }
 
-// Build a fresh 10-question game from the 1,000+ question bank.
+// Build a fresh 5-question game from the question bank.
 // Questions progress from easy to hard and never repeat the same source fact
 // within a game. Options are shuffled so the correct answer is not always
 // in the same position.
@@ -104,7 +104,7 @@ function buildGameQuestions(bank){
    q.difficulty=d;
    selected.push(q);
  }
- // Safety fallback: always return exactly 10 if the bank is unexpectedly small.
+ // Safety fallback: return up to 5 questions if the bank is unexpectedly small.
  if(selected.length<TOTAL_QUESTIONS){
    const remaining=shuffleCopy(bank||[]).filter(q=>!selected.some(x=>questionFact(x)===questionFact(q)));
    for(const raw of remaining){
@@ -407,11 +407,15 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  r.contestantId=r.winner.id;
  // Mark the player as having participated as soon as the host starts the
  // quiz. This prevents the same player from appearing in any later
- // Fastest Finger selection, even if they are eliminated before Q10.
+ // Fastest Finger selection, even if they are eliminated before the quiz is completed.
  r.played.add(r.winner.employeeCode);
  const bank=await questions();
  r.questions=buildGameQuestions(bank);
- r.phase="question";r.current=0;r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();r.fiftyFiftyRemoved.clear();r.eliminatedContestant=null;if(r.winner)r.winner.lifelinesUsed={"5050":false,"audience":false,"phone":false};
+ r.phase="question";r.current=0;r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();r.fiftyFiftyRemoved.clear();r.eliminatedContestant=null;if(r.winner){
+   r.winner.lifelinesUsed={"5050":false,"audience":false,"phone":false};
+   const contestantUser=r.users.get(r.winner.id);
+   if(contestantUser)contestantUser.lifelinesUsed={"5050":false,"audience":false,"phone":false};
+ }
  emitState(s.data.room);
 });
  s.on("host:nextFastest",async()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;await pick7(r);emitState(s.data.room)});
@@ -571,6 +575,10 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  const q=r.questions[r.current];
  if(type==="5050"){
    u.lifelinesUsed["5050"]=true;
+   if(r.winner && r.winner.id===u.id){
+     r.winner.lifelinesUsed=r.winner.lifelinesUsed||{"5050":false,"audience":false,"phone":false};
+     r.winner.lifelinesUsed["5050"]=true;
+   }
    const remove=q.options.map((_,i)=>i).filter(i=>i!==q.answer).sort(()=>Math.random()-.5).slice(0,2);
    r.fiftyFiftyRemoved.set(r.current,remove);
    s.emit("lifelineResult",{type,remove,used:true});
@@ -578,10 +586,18 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  }else if(type==="audience"){
    if(!r.pollActive){s.emit("lifelineResult",{type,error:"The host has not opened the Audience Poll yet."});return;}
    u.lifelinesUsed.audience=true;
-   s.emit("lifelineResult",{type,counts:Object.fromEntries(r.poll),used:true});
+   if(r.winner && r.winner.id===u.id){
+     r.winner.lifelinesUsed=r.winner.lifelinesUsed||{"5050":false,"audience":false,"phone":false};
+     r.winner.lifelinesUsed.audience=true;
+   }
+   s.emit("lifelineResult",{type,counts:pollCounts(r.poll),used:true});
    emitState(s.data.room);
  }else if(type==="phone"){
    u.lifelinesUsed.phone=true;
+   if(r.winner && r.winner.id===u.id){
+     r.winner.lifelinesUsed=r.winner.lifelinesUsed||{"5050":false,"audience":false,"phone":false};
+     r.winner.lifelinesUsed.phone=true;
+   }
    s.emit("lifelineResult",{type,message:"Ask a colleague and then choose your answer.",used:true});
    emitState(s.data.room);
  }
