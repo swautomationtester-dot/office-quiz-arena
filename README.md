@@ -87,3 +87,8 @@ Set `PUBLIC_URL=https://quiz.vrqaacademy.co.in` after the custom domain is conne
 - If the contestant is eliminated, the seat is cleared and they become eligible again for a future Fastest Finger round.
 - If the contestant completes the game, they are marked completed and remain excluded.
 - The TV selection roster therefore contains only players who are actually eligible for the next selection.
+
+## v50 Participant quiz UI fix
+- When the Fastest Finger winner enters the live quiz, the registration heading, room/name/register-number inputs, and Register & Join button are hidden.
+- The live quiz area remains visible, including the contestant name, question, answers, and lifelines.
+- The registration area is restored for waiting/non-contestant states.

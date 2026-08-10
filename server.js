@@ -149,9 +149,9 @@ function emitState(code){
   pollActive:r.pollActive,
   pollCounts:Object.fromEntries(r.poll),
   lifelines:(r.winner&&r.current>=0)?{
-    "5050":r.lifelines.has(`${r.winner.id}:${r.current}:5050`),
-    "audience":r.lifelines.has(`${r.winner.id}:${r.current}:audience`),
-    "phone":r.lifelines.has(`${r.winner.id}:${r.current}:phone`)
+    "5050":!!r.winner.lifelinesUsed?.["5050"],
+    "audience":!!r.winner.lifelinesUsed?.audience,
+    "phone":!!r.winner.lifelinesUsed?.phone
   }:{},
   fastestToken:r.fastestToken,
   fastestJoinUrl:r.fastestJoinUrl,
@@ -288,7 +288,7 @@ io.on("connection",s=>{
  s.on("host:create",async()=>{let code;do code=String(Math.floor(1000+Math.random()*9000));while(rooms.has(code));const r=makeRoom();r.host=s.id;r.questions=[];rooms.set(code,r);s.join(code);s.data.room=code;s.data.role="host";const joinUrl=`${PUBLIC_URL}/join.html?room=${code}`;r.joinUrl=joinUrl;r.joinQr=await QRCode.toDataURL(joinUrl);r.screenToken=crypto.randomBytes(14).toString("base64url");r.screenUrl=`${PUBLIC_URL}/screen/${r.screenToken}`;r.screenQr=await QRCode.toDataURL(r.screenUrl,{margin:1,width:280});r.audiencePollUrl=`${PUBLIC_URL}/audience.html?room=${code}`;r.audiencePollQr=await QRCode.toDataURL(r.audiencePollUrl,{margin:1,width:320});s.emit("room",{code,joinUrl,qr:r.joinQr,screenUrl:r.screenUrl,screenQr:r.screenQr,audiencePollUrl:r.audiencePollUrl,audiencePollQr:r.audiencePollQr});emitState(code)});
  s.on("join",({code,name,employeeCode,role="player",game})=>{code=String(code||"").trim();const r=rooms.get(code);if(!/^\d{4}$/.test(code))return s.emit("errorMsg","Room code must be exactly 4 digits.");if(!r)return s.emit("errorMsg","Room not found. Ask the host for a new code.");
  if(game){const ec=String(employeeCode||"").trim();if(game!==r.fastestToken)return s.emit("errorMsg","This Fastest Finger QR is no longer active.");if(!/^\d+$/.test(ec))return s.emit("errorMsg","Register number must contain numbers only.");if(!r.pool.some(p=>p.employeeCode===ec))return s.emit("errorMsg","You are not selected for this Fastest Finger round.");}
- s.join(code);s.data.room=code;s.data.role=role;if(role==="audience"||role==="tv"||role==="roster"){s.emit("joined",{name:role==="tv"?"TV Screen":role==="roster"?"Roster Viewer":"Audience"});emitState(code);return}name=String(name||"").trim();employeeCode=String(employeeCode||"").trim();if(!/^[A-Za-z]+(?:[ ][A-Za-z]+)*$/.test(name))return s.emit("errorMsg","Name must contain alphabets only.");if(!/^\d+$/.test(employeeCode))return s.emit("errorMsg","Register number must contain numbers only.");if([...r.users.values()].some(u=>u.employeeCode===employeeCode))return s.emit("errorMsg","This register number is already registered.");r.users.set(s.id,{id:s.id,name,employeeCode,score:0,status:"active",inPool:false,registeredAt:Date.now()});s.emit("joined",{name,employeeCode});emitState(code)});
+ s.join(code);s.data.room=code;s.data.role=role;if(role==="audience"||role==="tv"||role==="roster"){s.emit("joined",{name:role==="tv"?"TV Screen":role==="roster"?"Roster Viewer":"Audience"});emitState(code);return}name=String(name||"").trim();employeeCode=String(employeeCode||"").trim();if(!/^[A-Za-z]+(?:[ ][A-Za-z]+)*$/.test(name))return s.emit("errorMsg","Name must contain alphabets only.");if(!/^\d+$/.test(employeeCode))return s.emit("errorMsg","Register number must contain numbers only.");if([...r.users.values()].some(u=>u.employeeCode===employeeCode))return s.emit("errorMsg","This register number is already registered.");r.users.set(s.id,{id:s.id,name,employeeCode,score:0,status:"active",inPool:false,lifelinesUsed:{"5050":false,"audience":false,"phone":false},registeredAt:Date.now()});s.emit("joined",{name,employeeCode});emitState(code)});
  s.on("host:showParticipants",()=>{
   const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;
   s.emit("participantsList",[...r.users.values()].map(u=>({name:u.name,employeeCode:u.employeeCode,score:u.score,status:u.status,registeredAt:u.registeredAt})));
@@ -307,6 +307,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
   const req=r.pendingPollRequest;r.pendingPollRequest=null;r.poll.clear();r.pollActive=true;
   const lifelineKey=`${req.id}:${r.current}:audience`;
   r.lifelines.add(lifelineKey);
+  if(r.winner?.id===req.id) r.winner.lifelinesUsed={...(r.winner.lifelinesUsed||{}),audience:true};
   io.to(req.id).emit("audiencePollApproved",{contestant:req,counts:Object.fromEntries(r.poll)});
   io.to(s.data.room).emit("audiencePollStarted",{contestant:req});
   emitState(s.data.room);
@@ -331,6 +332,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  r.pollActive=true;
  const lifelineKey=`${r.winner.id}:${r.current}:audience`;
  r.lifelines.add(lifelineKey);
+ r.winner.lifelinesUsed={...(r.winner.lifelinesUsed||{}),audience:true};
  io.to(r.winner.id).emit("audiencePollApproved",{contestant:{name:r.winner.name,employeeCode:r.winner.employeeCode},counts:Object.fromEntries(r.poll)});
  io.to(s.data.room).emit("audiencePollStarted",{contestant:{name:r.winner.name,employeeCode:r.winner.employeeCode}});
  emitState(s.data.room);
@@ -395,7 +397,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  r.contestantId=r.winner.id;
  const bank=await questions();
  r.questions=buildGameQuestions(bank);
- r.phase="question";r.current=0;r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();
+ r.phase="question";r.current=0;r.answers.clear();r.pendingAnswer=null;r.pendingPollRequest=null;r.poll.clear();r.lifelines.clear();if(r.winner)r.winner.lifelinesUsed={"5050":false,"audience":false,"phone":false};
  emitState(s.data.room);
 });
  s.on("host:nextFastest",async()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;await pick7(r);emitState(s.data.room)});
@@ -416,7 +418,7 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  }else r.phase="question";
  emitState(s.data.room);
 });
- s.on("host:restartEvent",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;for(const u of r.users.values()){u.score=0;u.status="active";u.inPool=false}r.contestantId=null;r.failed.clear();r.pool=[];r.winner=null;r.current=-1;r.phase="registration";emitState(s.data.room)});
+ s.on("host:restartEvent",()=>{const r=rooms.get(s.data.room);if(!r||r.host!==s.id)return;for(const u of r.users.values()){u.score=0;u.status="active";u.inPool=false;u.lifelinesUsed={"5050":false,"audience":false,"phone":false}}r.contestantId=null;r.failed.clear();r.pool=[];r.winner=null;r.current=-1;r.phase="registration";emitState(s.data.room)});
  s.on("player:answer",({choice})=>{
   const r=rooms.get(s.data.room);if(!r||r.phase!=="question")return;
   const u=r.users.get(s.id);
@@ -550,39 +552,21 @@ s.on("host:openRegistration",()=>{const r=rooms.get(s.data.room);if(!r||r.host!=
  s.on("lifeline",({type})=>{
  const r=rooms.get(s.data.room);if(!r||r.phase!=="question")return;
  const u=r.users.get(s.id);if(!u||u.status!=="active"||!r.winner||r.winner.id!==s.id)return;
- const key=`${s.id}:${r.current}:${type}`;
+ u.lifelinesUsed=u.lifelinesUsed||{"5050":false,"audience":false,"phone":false};
+ if(u.lifelinesUsed[type]){s.emit("lifelineResult",{type,error:`${type==="5050"?"50:50":type==="audience"?"Audience Poll":"Phone-a-Friend"} has already been used for this quiz.`});return;}
+ const q=r.questions[r.current];
  if(type==="5050"){
-   if(r.lifelines.has(key))return;
-   const audienceKey=`${s.id}:${r.current}:audience`;
-   if(r.lifelines.has(audienceKey)){
-     s.emit("lifelineResult",{type,error:"Audience Poll has already been used for this question."});
-     return;
-   }
-   r.lifelines.add(key);
-   const q=r.questions[r.current];
+   u.lifelinesUsed["5050"]=true;
    const remove=q.options.map((_,i)=>i).filter(i=>i!==q.answer).sort(()=>Math.random()-.5).slice(0,2);
    s.emit("lifelineResult",{type,remove,used:true});
    emitState(s.data.room);
  }else if(type==="audience"){
-   // The host opens the poll. The contestant's Audience lifeline is consumed
-   // only once for this question.
-   if(r.lifelines.has(key))return;
-   if(!r.pollActive){
-     s.emit("lifelineResult",{type,error:"The host has not opened the Audience Poll yet."});
-     return;
-   }
-   const fiftyKey=`${s.id}:${r.current}:5050`;
-   if(r.lifelines.has(fiftyKey)){
-     s.emit("lifelineResult",{type,error:"50:50 has already been used for this question."});
-     return;
-   }
-   r.lifelines.add(key);
+   if(!r.pollActive){s.emit("lifelineResult",{type,error:"The host has not opened the Audience Poll yet."});return;}
+   u.lifelinesUsed.audience=true;
    s.emit("lifelineResult",{type,counts:Object.fromEntries(r.poll),used:true});
    emitState(s.data.room);
- }else{
-   const phoneKey=`${s.id}:${r.current}:phone`;
-   if(r.lifelines.has(phoneKey))return;
-   r.lifelines.add(phoneKey);
+ }else if(type==="phone"){
+   u.lifelinesUsed.phone=true;
    s.emit("lifelineResult",{type,message:"Ask a colleague and then choose your answer.",used:true});
    emitState(s.data.room);
  }
