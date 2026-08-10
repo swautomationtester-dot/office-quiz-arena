@@ -19,6 +19,14 @@ async function resolveScreen(){
  }catch(e){document.body.innerHTML=`<main style="padding:40px;text-align:center"><h1>Screen link unavailable</h1><p>${e.message}</p><p>Please ask the host to create a new room.</p></main>`;throw e}
 }
 let soundOn=true,audioCtx=null,lastPhase="",lastQuestion=-1,fastTimer=null,tvUniqueUrl="";
+let questionAudio=null;
+function playQuestionAudio(questionIndex){
+  try{
+    if(!questionAudio){questionAudio=new Audio("/assets/kbc-question.mp3");questionAudio.preload="auto";questionAudio.volume=0.85;}
+    questionAudio.currentTime=0;
+    questionAudio.play().catch(()=>{});
+  }catch(e){}
+}
 const prizes=[100,200,300,500,1000,2000,5000,10000,20000,50000];
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
@@ -303,7 +311,7 @@ s.on("state",x=>{ latestTvState=x;try{
  if(x.phase==="eliminated"){
  const e=x.eliminatedContestant;
  $("tvmain").innerHTML=`<div class=elimination><div class=tvkicker>CONTESTANT ELIMINATED</div><div class=wrongX>✕</div><h1>WRONG ANSWER</h1><h2>${e?e.name:"Contestant"}</h2><p>Well played!</p><div class=securedPoints>POINTS SECURED <b>₹${Number(e?.pointsEarned||0).toLocaleString("en-IN")}</b></div><div class=nextBadge>NEXT: FASTEST FINGER</div></div>`;return}
- if(x.phase==="question"&&x.question){if(lastQuestion!==x.current){transition("NEW CONTESTANT GAME",`QUESTION ${x.current+1} OF 10`);setTimeout(()=>{
+ if(x.phase==="question"&&x.question){if(lastQuestion!==x.current){playQuestionAudio(x.current);transition("NEW CONTESTANT GAME",`QUESTION ${x.current+1} OF 10`);setTimeout(()=>{
    $("tvmain").innerHTML=`<div class=questionScreen><div class=qmeta><span>QUESTION ${x.current+1} OF 10</span><span>₹${x.question.points.toLocaleString("en-IN")}</span></div><h1>${x.question.text}</h1><div class=tvopts>${x.question.options.map((o,i)=>`<div><b>${String.fromCharCode(65+i)}</b><span>${o}</span></div>`).join("")}</div></div>`;
    tone(440,.18);tone(660,.22,"sine",.05,.18);
    // The delayed question transition used to overwrite the audience-poll

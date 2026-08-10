@@ -1,5 +1,15 @@
 const s=io({transports:["websocket","polling"],reconnection:true,timeout:10000}),$=id=>document.getElementById(id);
 let me="",gameToken="",tvUniqueUrl="",hasJoined=false,fastSeq=[],fastIndex=0,fastTimer=null,fastStarted=false,eliminationTimer=null,eliminationUntil=0,audiencePollCounts={},audiencePollActive=false;
+let questionAudio=null,lastQuestionAudioIndex=-1;
+function playQuestionAudio(questionIndex){
+  if(questionIndex===lastQuestionAudioIndex)return;
+  lastQuestionAudioIndex=questionIndex;
+  try{
+    if(!questionAudio){questionAudio=new Audio("/assets/kbc-question.mp3");questionAudio.preload="auto";questionAudio.volume=0.85;}
+    questionAudio.currentTime=0;
+    questionAudio.play().catch(()=>{});
+  }catch(e){}
+}
 const prizeLadder=[100,200,300,500,1000,2000,5000,10000,20000,50000];
 function playerScore(users){const u=(users||[]).find(v=>v.employeeCode===me);return u?Number(u.score||0):0}
 function renderPlayerLadder(users){ /* hidden in the live player view */ }
@@ -174,7 +184,7 @@ s.on("state",x=>{ tvUniqueUrl=x.screenUrl||tvUniqueUrl; renderPlayerLadder(x.use
    $("status").innerHTML="⏳ <b>Waiting for the next Fastest Finger.</b><br>You remain registered and may be selected in the next round.";
    return}
  if(x.phase==="eliminated"){audiencePollActive=false;renderAudiencePollResult({},null);clearAnswerResult();$("status").innerHTML="❌ <b>Game result is being shown…</b>";return}
- if(x.phase==="question"&&x.question){if(!audiencePollActive)clearAnswerResult(); audiencePollActive=!!x.pollActive; audiencePollCounts=x.pollCounts||audiencePollCounts; renderAudiencePollResult(audiencePollCounts,x.question);
+ if(x.phase==="question"&&x.question){playQuestionAudio(x.current);if(!audiencePollActive)clearAnswerResult(); audiencePollActive=!!x.pollActive; audiencePollCounts=x.pollCounts||audiencePollCounts; renderAudiencePollResult(audiencePollCounts,x.question);
    if(x.contestant&&x.contestant.employeeCode===me){
      setQuizActive(true);
      hasJoined=true;
